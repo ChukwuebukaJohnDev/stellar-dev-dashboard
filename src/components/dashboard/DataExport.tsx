@@ -74,6 +74,7 @@ export default function DataExport() {
     exportTransactions,
     exportBalances,
     importBackup,
+    cancelImport,
   } = useDataExport();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,6 +208,11 @@ export default function DataExport() {
             >
               {isImporting ? "⏳ Importing…" : "⬆ Choose Backup File"}
             </ActionButton>
+            {isImporting && (
+              <ActionButton onClick={cancelImport} variant="secondary">
+                ✕ Cancel import
+              </ActionButton>
+            )}
           </div>
           <StatusMessage error={importError} success={importSuccess} />
         </div>

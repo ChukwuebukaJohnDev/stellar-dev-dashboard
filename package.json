@@ -43,6 +43,7 @@
     "test:integration": "vitest run --config vitest.config.js --dir tests/integration",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:interaction-latency": "playwright test tests/e2e/interaction-latency.spec.ts --project=chromium",
     "test:visual": "playwright test --project=visual-mobile --project=visual-tablet --project=visual-desktop --project=visual-wide",
     "test:visual:update": "playwright test --project=visual-mobile --project=visual-tablet --project=visual-desktop --project=visual-wide --update-snapshots",
     "test:visual:report": "playwright show-report tests/e2e/report",
