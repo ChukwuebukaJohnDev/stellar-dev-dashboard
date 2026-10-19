@@ -219,4 +219,118 @@ describe('useDataExport', () => {
     expect(result.current.importError).toMatch(/exportedAt/i);
     expect(result.current.importSuccess).toBe(false);
   });
+
+  // ── Partial exports are refused (#1203) ────────────────────────────────────
+
+  describe('partial export protection (#1203)', () => {
+    const txs = (n) =>
+      Array.from({ length: n }, (_, i) => ({ id: String(i), hash: 'h' + i, ledger: i }));
+
+    it('refuses to export fewer rows than the source reported, and downloads nothing', async () => {
+      const { result } = renderHook(() => useDataExport());
+      await act(async () => {
+        await result.current.exportTransactions(txs(40), 'csv', { expectedTotal: 100 });
+      });
+
+      expect(result.current.exportError).toMatch(/Only 40 of 100 rows were loaded/);
+      expect(result.current.exportError).toMatch(/Export aborted/);
+      expect(createObjectURL).not.toHaveBeenCalled();
+      expect(click).not.toHaveBeenCalled();
+      expect(result.current.isExporting).toBe(false);
+    });
+
+    it('exports when the loaded rows reach the expected total', async () => {
+      const { result } = renderHook(() => useDataExport());
+      await act(async () => {
+        await result.current.exportTransactions(txs(100), 'csv', { expectedTotal: 100 });
+      });
+
+      expect(result.current.exportError).toBeNull();
+      expect(click).toHaveBeenCalledTimes(1);
+    });
+
+    it('applies the same check to balances, and clears the error on the next good export', async () => {
+      const { result } = renderHook(() => useDataExport());
+      await act(async () => {
+        await result.current.exportBalances([{ asset_type: 'native', balance: '1' }], 'csv', { expectedTotal: 3 });
+      });
+      expect(result.current.exportError).toMatch(/1 of 3/);
+
+      await act(async () => {
+        await result.current.exportBalances([{ asset_type: 'native', balance: '1' }], 'csv');
+      });
+      expect(result.current.exportError).toBeNull();
+      expect(click).toHaveBeenCalledTimes(1);
+    });
+
+    it('still exports when no total is known', async () => {
+      const { result } = renderHook(() => useDataExport());
+      await act(async () => {
+        await result.current.exportTransactions(txs(2), 'json');
+      });
+      expect(result.current.exportError).toBeNull();
+      expect(click).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ── Cancellable, size-bounded import (#1205) ───────────────────────────────
+
+  describe('import limits and cancellation (#1205)', () => {
+    it('rejects a file over the size limit with a clear message and leaves state untouched', async () => {
+      const { result } = renderHook(() => useDataExport());
+      const big = makeMockFile('x'.repeat(11 * 1024 * 1024));
+
+      await act(async () => {
+        await result.current.importBackup(big);
+      });
+
+      expect(result.current.importError).toMatch(/too large to import/i);
+      expect(result.current.importSuccess).toBe(false);
+      expect(result.current.isImporting).toBe(false);
+    });
+
+    it('cancelImport stops an import in progress and reports it as cancelled', async () => {
+      const { result } = renderHook(() => useDataExport());
+      const file = makeMockFile(JSON.stringify({ version: 1, exportedAt: 'now', account: {} }));
+
+      let pending;
+      act(() => {
+        pending = result.current.importBackup(file);
+        result.current.cancelImport();
+      });
+      await act(async () => {
+        await pending;
+      });
+
+      expect(result.current.importError).toBe('Import cancelled.');
+      expect(result.current.importSuccess).toBe(false);
+      expect(result.current.isImporting).toBe(false);
+    });
+
+    it('cancelImport is harmless when nothing is running', () => {
+      const { result } = renderHook(() => useDataExport());
+      expect(() => act(() => result.current.cancelImport())).not.toThrow();
+      expect(result.current.importError).toBeNull();
+    });
+
+    it('a new import replaces one in progress and still finishes normally', async () => {
+      const { result } = renderHook(() => useDataExport());
+      const good = makeMockFile(
+        JSON.stringify({ version: 1, exportedAt: 'now', account: { network: 'testnet' }, theme: 'dark' }),
+      );
+
+      let first;
+      let second;
+      act(() => {
+        first = result.current.importBackup(good);
+        second = result.current.importBackup(good);
+      });
+      await act(async () => {
+        await Promise.all([first, second]);
+      });
+
+      expect(result.current.importSuccess).toBe(true);
+      expect(result.current.isImporting).toBe(false);
+    });
+  });
 });

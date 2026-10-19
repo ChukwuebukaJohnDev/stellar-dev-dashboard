@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useStore } from '../../lib/store';
 import { fetchXLMPrice } from '../../lib/priceFeed';
 import { RefreshCw } from 'lucide-react';
+import { ProvenanceBadge } from '../common/ProvenanceBadge';
 
 export default function PriceTicker() {
-  const { prices, setPrices, setPricesLoading, setPricesError } = useStore();
+  const { prices, pricesError, setPrices, setPricesLoading, setPricesError } = useStore();
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const loadPrice = useCallback(async (forceRefresh = false) => {
@@ -74,6 +75,12 @@ export default function PriceTicker() {
         </>
       ) : (
         <span style={{ color: 'var(--text-muted)' }}>—</span>
+      )}
+      {xlm?.usd !== null && xlm?.usd !== undefined && (
+        // Refreshes every 60s; two missed refreshes make the value "cached" (#1206).
+        <ProvenanceBadge
+          signals={{ fetchedAt: lastUpdated, hasError: Boolean(pricesError), staleAfterMs: 3 * 60_000 }}
+        />
       )}
       <button
         type="button"

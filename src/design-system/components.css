@@ -135,3 +135,9 @@
 @media (prefers-reduced-motion: reduce) {
   .ds-skeleton { animation: none; }
 }
+
+/* Data provenance badge (#1206): icon + label (+ age); the icon differs per kind. */
+.provenance-badge { display: inline-flex; align-items: center; gap: var(--space-1, 4px); white-space: nowrap; }
+.provenance-badge__age { font-weight: 400; opacity: 0.85; }
+.provenance-badge--cached { border-style: dashed; }
+.provenance-badge--predicted { border-style: dotted; }
